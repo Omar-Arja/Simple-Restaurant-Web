@@ -1,6 +1,9 @@
 <?php
 require_once '../db/connection.php';
 
+header('Access-Control-Allow-Origin: *'); // Allow requests from any origin
+header('Access-Control-Allow-Methods: POST, GET, OPTIONS'); // Allow specific methods
+header('Access-Control-Allow-Headers: Content-Type, Authorization'); // Allow specific headers
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {

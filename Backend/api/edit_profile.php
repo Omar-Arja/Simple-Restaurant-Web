@@ -1,6 +1,9 @@
 <?php
 require_once '../db/connection.php';
 
+header('Access-Control-Allow-Origin: *'); // Allow requests from any origin
+header('Access-Control-Allow-Methods: POST, GET, OPTIONS'); // Allow specific methods
+header('Access-Control-Allow-Headers: Content-Type, Authorization'); // Allow specific headers
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -9,12 +12,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $phone = $_POST['phone'] ?? null;
     $address = $_POST['address'] ?? null;
     $password = $_POST['password'] ?? null;
+    $email = $_POST['email'] ?? null;
     $profileImage = $_FILES['profile_image'] ?? null;
 
     // Validate user ID
     if (empty($userId) || !filter_var($userId, FILTER_VALIDATE_INT)) {
         echo json_encode(['success' => false, 'message' => 'Invalid or missing user ID.']);
         exit;
+    }
+
+    // Validate email
+    if (!empty($email)) {
+        // Check if the email is a valid format
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid email address.']);
+            exit;
+        }
+
+        // Check if the email is already taken by another user
+        $stmt = $pdo->prepare('SELECT id FROM users WHERE email = ? AND id != ?');
+        $stmt->execute([$email, $userId]);
+        if ($stmt->fetch()) {
+            echo json_encode(['success' => false, 'message' => 'Email is already taken.']);
+            exit;
+        }
     }
 
     try {
@@ -40,6 +61,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!empty($password)) {
             $fields[] = 'password = ?';
             $params[] = password_hash($password, PASSWORD_BCRYPT); // Hash the password
+        }
+
+        if (!empty($email)) {
+            $fields[] = 'email = ?';
+            $params[] = $email;
         }
 
         if ($profileImage && !empty($profileImage['name'])) {
@@ -82,13 +108,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute($params);
 
         // Fetch the updated user data
-        $stmt = $pdo->prepare('SELECT id, name, phone, address, profile_image FROM users WHERE id = ?');
+        $stmt = $pdo->prepare('SELECT id, name, phone, address, email, profile_image FROM users WHERE id = ?');
         $stmt->execute([$userId]);
         $updatedUser = $stmt->fetch(PDO::FETCH_ASSOC);
 
         // Add image URL to the response
         if ($updatedUser) {
-            $updatedUser['image_url'] = 'http://localhost/vanilla-php-api/images/' . ($updatedUser['profile_image'] ?? 'default.png');
+            $updatedUser['image_url'] = 'http://localhost:8000/images/' . ($updatedUser['profile_image'] ?? 'default.png');
         }
 
         echo json_encode(['success' => true, 'message' => 'Profile updated successfully.', 'data' => $updatedUser]);
